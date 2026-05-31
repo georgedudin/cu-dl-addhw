@@ -30,17 +30,20 @@ class VisionToTextAdapter(nn.Module):
         self.text_hidden_size = text_hidden_size
         self.num_image_tokens = num_image_tokens
 
-        self.pre_norm = nn.LayerNorm(vision_hidden_size)
         self.proj1 = nn.Linear(vision_hidden_size, text_hidden_size)
         self.act = nn.GELU()
         self.proj2 = nn.Linear(text_hidden_size, text_hidden_size)
 
     def forward(self, vision_hidden_states: torch.Tensor) -> torch.Tensor:
         """Return visual embeddings [B, num_image_tokens, text_hidden_size]."""
-        x = self.pre_norm(vision_hidden_states)
-        x = self.proj2(self.act(self.proj1(x)))
-        x = F.adaptive_avg_pool1d(x.transpose(1, 2), self.num_image_tokens).transpose(1, 2)
-        return x
+        x = self.proj2(self.act(self.proj1(vision_hidden_states)))
+        x_t = x.transpose(1, 2)
+        n = x_t.shape[-1]
+        k = self.num_image_tokens
+        stride = max(1, n // k)
+        kernel = n - (k - 1) * stride
+        x_t = F.avg_pool1d(x_t, kernel_size=kernel, stride=stride)
+        return x_t.transpose(1, 2)
 
 
 def merge_visual_embeddings(
