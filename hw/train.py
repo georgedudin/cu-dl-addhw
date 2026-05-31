@@ -40,6 +40,7 @@ def train_one_step(model: torch.nn.Module, batch: dict[str, torch.Tensor], optim
     loss = out["loss"] if isinstance(out, dict) else out.loss
     assert torch.isfinite(loss), f"non-finite loss: {loss.item()}"
     loss.backward()
+    torch.nn.utils.clip_grad_norm_([p for p in model.parameters() if p.requires_grad], 1.0)
     optimizer.step()
     optimizer.zero_grad()
     return float(loss.item())
