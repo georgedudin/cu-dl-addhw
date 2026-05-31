@@ -23,13 +23,13 @@ processor:
   ignore_index: -100
 
 trainer:
-  device: cuda
-  dtype: float16
+  device: mps
+  dtype: float32
   num_train_epochs: 1
-  max_steps: 300
-  local_batch_size: 1
-  global_batch_size: 8
-  learning_rate: 0.0002
+  max_steps: 500
+  local_batch_size: 4
+  global_batch_size: 4
+  learning_rate: 0.00005
   weight_decay: 0.0
   num_workers: 0
-  save_checkpoint_path: checkpoints/adapter_medium.pt
+  save_checkpoint_path: artifacts/adapter.pt
