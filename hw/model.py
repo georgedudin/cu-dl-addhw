@@ -132,9 +132,27 @@ class MathVLM(nn.Module):
     @torch.no_grad()
     def generate(self, batch: dict[str, torch.Tensor], **generation_kwargs: Any) -> torch.Tensor:
         """Generate answer token ids."""
+        max_new_tokens = int(generation_kwargs.get("max_new_tokens", 32))
+        eos_id = self.language_model.config.eos_token_id
+
         merged = self._prepare_inputs(batch)
-        return self.language_model.generate(
-            inputs_embeds=merged,
-            attention_mask=batch.get("attention_mask"),
-            **generation_kwargs,
-        )
+        attn = batch.get("attention_mask")
+        embed = self.language_model.get_input_embeddings()
+
+        cur_embeds, cur_attn, past = merged, attn, None
+        generated = []
+        for _ in range(max_new_tokens):
+            out = self.language_model(
+                inputs_embeds=cur_embeds,
+                attention_mask=cur_attn,
+                past_key_values=past,
+                use_cache=True,
+            )
+            past = out.past_key_values
+            next_id = out.logits[:, -1].argmax(dim=-1)
+            generated.append(next_id)
+            if (next_id == eos_id).all():
+                break
+            cur_embeds = embed(next_id.unsqueeze(-1))
+            cur_attn = torch.cat([cur_attn, torch.ones_like(next_id.unsqueeze(-1))], dim=-1)
+        return torch.stack(generated, dim=-1)
